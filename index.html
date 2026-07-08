@@ -81,7 +81,7 @@
             color: #aaa;
             padding: 12px 24px;
             font-size: 0.9rem;
-            border-radius: 2px;
+            border-radius: 2px; /* Sharper edges for this theme */
             cursor: pointer;
             backdrop-filter: blur(5px);
             transition: all 0.4s ease;
@@ -103,7 +103,7 @@
         }
 
         #btn-panic {
-            border-color: rgba(155, 89, 182, 0.3); 
+            border-color: rgba(155, 89, 182, 0.3); /* Purple hue for derealization */
             color: #d2b4de;
         }
 
@@ -114,7 +114,7 @@
         }
 
         #btn-breathe {
-            border-color: rgba(46, 204, 113, 0.3); 
+            border-color: rgba(46, 204, 113, 0.3); /* Green hue for grounding */
             color: #a9dfbf;
         }
 
@@ -168,34 +168,6 @@
         .hidden {
             opacity: 0;
             pointer-events: none;
-        }
-
-        /* Mobile specific styling adjustments */
-        @media (max-width: 600px) {
-            .header h1 {
-                font-size: 1rem;
-                letter-spacing: 2px;
-            }
-            .header p {
-                font-size: 0.75rem;
-            }
-            .controls {
-                padding: 15px;
-                gap: 10px;
-            }
-            button {
-                padding: 10px 16px;
-                font-size: 0.8rem;
-                letter-spacing: 1px;
-            }
-            #intro-overlay h2 {
-                font-size: 1.2rem;
-                letter-spacing: 4px;
-            }
-            #intro-overlay p {
-                font-size: 0.85rem;
-                margin-bottom: 30px;
-            }
         }
     </style>
 </head>
@@ -397,83 +369,76 @@
         let distortionNode;
 
         function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                masterGain = audioCtx.createGain();
-                masterGain.gain.value = 0.8;
-                masterGain.connect(audioCtx.destination);
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.8;
+            masterGain.connect(audioCtx.destination);
 
-                // 1. Setup Rushing Noise (White Noise)
-                const bufferSize = audioCtx.sampleRate * 2; 
-                const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                const output = noiseBuffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                    output[i] = Math.random() * 2 - 1;
-                }
-
-                noiseNode = audioCtx.createBufferSource();
-                noiseNode.buffer = noiseBuffer;
-                noiseNode.loop = true;
-
-                noiseFilter = audioCtx.createBiquadFilter();
-                noiseFilter.type = 'bandpass';
-                noiseFilter.frequency.value = 400; 
-                noiseFilter.Q.value = 0.5;
-
-                noiseGain = audioCtx.createGain();
-                noiseGain.gain.value = 0; 
-
-                noiseNode.connect(noiseFilter);
-                noiseFilter.connect(noiseGain);
-                noiseGain.connect(masterGain);
-                noiseNode.start();
-
-                // Create a wave shaper for distortion
-                distortionNode = audioCtx.createWaveShaper();
-                distortionNode.curve = makeDistortionCurve(0);
-                distortionNode.oversample = '4x';
-                
-                // Route master through distortion
-                masterGain.disconnect();
-                masterGain.connect(distortionNode);
-                distortionNode.connect(audioCtx.destination);
-
-
-                // 2. Setup Drone (Dissonant presence)
-                tinnitusOsc = audioCtx.createOscillator();
-                tinnitusOsc.type = 'triangle'; // Harsher waveform
-                tinnitusOsc.frequency.value = 432; // Unsettling frequency
-
-                tinnitusGain = audioCtx.createGain();
-                tinnitusGain.gain.value = 0;
-
-                tinnitusOsc.connect(tinnitusGain);
-                tinnitusGain.connect(masterGain);
-                tinnitusOsc.start();
-
-                // 3. Start Heartbeat Scheduler
-                heartbeatNextTime = audioCtx.currentTime + 0.5;
-                heartbeatScheduleInterval = requestAnimationFrame(scheduleHeartbeats);
+            // 1. Setup Rushing Noise (White Noise)
+            const bufferSize = audioCtx.sampleRate * 2; 
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
             }
 
-            // iOS Safari requires explicit resume upon user gesture
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = noiseBuffer;
+            noiseNode.loop = true;
+
+            noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.value = 400; 
+            noiseFilter.Q.value = 0.5;
+
+            noiseGain = audioCtx.createGain();
+            noiseGain.gain.value = 0; 
+
+            noiseNode.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(masterGain);
+            noiseNode.start();
+
+            // Create a wave shaper for distortion
+            distortionNode = audioCtx.createWaveShaper();
+            distortionNode.curve = makeDistortionCurve(0);
+            distortionNode.oversample = '4x';
+            
+            // Route master through distortion
+            masterGain.disconnect();
+            masterGain.connect(distortionNode);
+            distortionNode.connect(audioCtx.destination);
+
+
+            // 2. Setup Drone (Dissonant presence)
+            tinnitusOsc = audioCtx.createOscillator();
+            tinnitusOsc.type = 'triangle'; // Harsher waveform
+            tinnitusOsc.frequency.value = 432; // Unsettling frequency
+
+            tinnitusGain = audioCtx.createGain();
+            tinnitusGain.gain.value = 0;
+
+            tinnitusOsc.connect(tinnitusGain);
+            tinnitusGain.connect(masterGain);
+            tinnitusOsc.start();
+
+            // 3. Start Heartbeat Scheduler
+            heartbeatNextTime = audioCtx.currentTime + 0.5;
+            heartbeatScheduleInterval = requestAnimationFrame(scheduleHeartbeats);
         }
 
-                // Initialize Heartbeat Scheduler
-                heartbeatNextTime = audioCtx.currentTime + 0.5;
-                heartbeatScheduleInterval = requestAnimationFrame(scheduleHeartbeats);
+        function makeDistortionCurve(amount) {
+            const k = typeof amount === 'number' ? amount : 50;
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            const deg = Math.PI / 180;
+            let i = 0;
+            let x;
+            for ( ; i < n_samples; ++i ) {
+                x = i * 2 / n_samples - 1;
+                curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
             }
-            
-            // Crucial for iOS Safari: forcefully resume context state on user interaction
-            if (audioCtx.state === 'suspended') {
-                let resumePromise = audioCtx.resume();
-                if (resumePromise !== undefined) {
-                    resumePromise.catch(e => console.warn("Audio resume blocked by browser:", e));
-                }
-            }
+            return curve;
         }
 
         function createHeartbeatThump(time, frequency, decay) {
@@ -662,41 +627,28 @@
          */
         const introOverlay = document.getElementById('intro-overlay');
         const btnStart = document.getElementById('btn-start');
-        const btnPanic = document.getElementById('btn-panic');
-        const btnBreathe = document.getElementById('btn-breathe');
 
-        const handleStart = (e) => {
-            if (e.type === 'touchstart') {
-                e.preventDefault(); // Prevent double-firing with click
-            }
-            
-            // 1. Hide overlay immediately so UI is responsive
+        btnStart.addEventListener('click', () => {
+            initAudio();
             introOverlay.classList.add('hidden');
             setTimeout(() => {
                 introOverlay.style.display = 'none';
-            }, 2000);
+            }, 2000); // Slower fade for this theme
             
-            // 2. Set baseline visual state
+            // Auto trigger a mild baseline
             targetPanicLevel = 0.05;
-
-            // 3. Try initializing audio safely.
-            try {
-                initAudio();
-            } catch (err) {
-                console.warn("Web Audio API not fully supported or blocked by mobile browser:", err);
-            }
-        };
-
-        btnStart.addEventListener('touchstart', handleStart, { passive: false });
-        btnStart.addEventListener('click', handleStart);
+        });
 
         // Trigger Panic
+        const btnPanic = document.getElementById('btn-panic');
         btnPanic.addEventListener('click', () => {
             targetPanicLevel = 1.0;
             isBreathing = false;
         });
 
         // Breathing Controls (Hold to anchor)
+        const btnBreathe = document.getElementById('btn-breathe');
+        
         const startBreathing = (e) => {
             e.preventDefault(); 
             isBreathing = true;
@@ -704,7 +656,8 @@
             btnBreathe.textContent = "Anchoring...";
         };
         
-        const stopBreathing = () => {
+        const stopBreathing = (e) => {
+            e.preventDefault();
             isBreathing = false;
             btnBreathe.classList.remove('active-breathing');
             btnBreathe.textContent = "Hold to Anchor";
@@ -730,8 +683,6 @@
         }, {passive: true});
 
         window.addEventListener('mouseout', () => mouse.active = false);
-        window.addEventListener('touchend', () => mouse.active = false);
-        window.addEventListener('touchcancel', () => mouse.active = false);
 
         // Start Loop
         animate();
