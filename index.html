@@ -662,28 +662,41 @@
          */
         const introOverlay = document.getElementById('intro-overlay');
         const btnStart = document.getElementById('btn-start');
+        const btnPanic = document.getElementById('btn-panic');
+        const btnBreathe = document.getElementById('btn-breathe');
 
-        btnStart.addEventListener('click', () => {
-            initAudio();
+        const handleStart = (e) => {
+            if (e.type === 'touchstart') {
+                e.preventDefault(); // Prevent double-firing with click
+            }
+            
+            // 1. Hide overlay immediately so UI is responsive
             introOverlay.classList.add('hidden');
             setTimeout(() => {
                 introOverlay.style.display = 'none';
-            }, 2000); // Slower fade for this theme
+            }, 2000);
             
-            // Auto trigger a mild baseline
+            // 2. Set baseline visual state
             targetPanicLevel = 0.05;
-        });
+
+            // 3. Try initializing audio safely.
+            try {
+                initAudio();
+            } catch (err) {
+                console.warn("Web Audio API not fully supported or blocked by mobile browser:", err);
+            }
+        };
+
+        btnStart.addEventListener('touchstart', handleStart, { passive: false });
+        btnStart.addEventListener('click', handleStart);
 
         // Trigger Panic
-        const btnPanic = document.getElementById('btn-panic');
         btnPanic.addEventListener('click', () => {
             targetPanicLevel = 1.0;
             isBreathing = false;
         });
 
         // Breathing Controls (Hold to anchor)
-        const btnBreathe = document.getElementById('btn-breathe');
-        
         const startBreathing = (e) => {
             e.preventDefault(); 
             isBreathing = true;
@@ -691,8 +704,7 @@
             btnBreathe.textContent = "Anchoring...";
         };
         
-        const stopBreathing = (e) => {
-            e.preventDefault();
+        const stopBreathing = () => {
             isBreathing = false;
             btnBreathe.classList.remove('active-breathing');
             btnBreathe.textContent = "Hold to Anchor";
@@ -724,39 +736,6 @@
         // Start Loop
         animate();
 
-        // Init Sequence
-        const handleStart = (e) => {
-            if (e.type === 'touchstart') {
-                e.preventDefault(); // Prevent double-firing with click
-            }
-            
-            // 1. Hide overlay immediately so UI is responsive
-            const introOverlay = document.getElementById('intro-overlay');
-            if (introOverlay) {
-                introOverlay.classList.add('hidden');
-                setTimeout(() => {
-                    introOverlay.style.display = 'none';
-                }, 2000);
-            }
-            
-            // 2. Set baseline visual state
-            targetPanicLevel = 0.05;
-
-            // 3. Try initializing audio safely. If this fails on a strict mobile browser, 
-            // the visual experience will still seamlessly begin!
-            try {
-                initAudio();
-            } catch (err) {
-                console.warn("Web Audio API not fully supported or blocked by mobile browser:", err);
-            }
-        };
-
-        const btnStart = document.getElementById('btn-start');
-        btnStart.addEventListener('touchstart', handleStart, { passive: false });
-        btnStart.addEventListener('click', handleStart);
-
-        // Trigger Controls
-        document.getElementById('btn-panic').addEventListener('click', () => { 
-            targetPanicLevel = 1.0; 
-            isBreathing = false; 
-        });
+    </script>
+</body>
+</html>
