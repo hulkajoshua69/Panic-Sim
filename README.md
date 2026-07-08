@@ -1,6 +1,5 @@
-# Panic-Sim
+# Panic-Paroxysm
 
-Panic Paroxysm
 Panic Paroxysm is an interactive, browser-based simulation of acute existential derealization. It is an exploration of the physiological and psychological experience of a panic attack, focusing on the sensory distortion and the arduous process of cognitive and physical grounding.
 
 Conceptual Overview
