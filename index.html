@@ -81,7 +81,7 @@
             color: #aaa;
             padding: 12px 24px;
             font-size: 0.9rem;
-            border-radius: 2px; /* Sharper edges for this theme */
+            border-radius: 2px;
             cursor: pointer;
             backdrop-filter: blur(5px);
             transition: all 0.4s ease;
@@ -103,7 +103,7 @@
         }
 
         #btn-panic {
-            border-color: rgba(155, 89, 182, 0.3); /* Purple hue for derealization */
+            border-color: rgba(155, 89, 182, 0.3); 
             color: #d2b4de;
         }
 
@@ -114,7 +114,7 @@
         }
 
         #btn-breathe {
-            border-color: rgba(46, 204, 113, 0.3); /* Green hue for grounding */
+            border-color: rgba(46, 204, 113, 0.3); 
             color: #a9dfbf;
         }
 
@@ -168,6 +168,34 @@
         .hidden {
             opacity: 0;
             pointer-events: none;
+        }
+
+        /* Mobile specific styling adjustments */
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 1rem;
+                letter-spacing: 2px;
+            }
+            .header p {
+                font-size: 0.75rem;
+            }
+            .controls {
+                padding: 15px;
+                gap: 10px;
+            }
+            button {
+                padding: 10px 16px;
+                font-size: 0.8rem;
+                letter-spacing: 1px;
+            }
+            #intro-overlay h2 {
+                font-size: 1.2rem;
+                letter-spacing: 4px;
+            }
+            #intro-overlay p {
+                font-size: 0.85rem;
+                margin-bottom: 30px;
+            }
         }
     </style>
 </head>
@@ -369,62 +397,69 @@
         let distortionNode;
 
         function initAudio() {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            masterGain = audioCtx.createGain();
-            masterGain.gain.value = 0.8;
-            masterGain.connect(audioCtx.destination);
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.8;
+                masterGain.connect(audioCtx.destination);
 
-            // 1. Setup Rushing Noise (White Noise)
-            const bufferSize = audioCtx.sampleRate * 2; 
-            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-            const output = noiseBuffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) {
-                output[i] = Math.random() * 2 - 1;
+                // 1. Setup Rushing Noise (White Noise)
+                const bufferSize = audioCtx.sampleRate * 2; 
+                const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+
+                noiseNode = audioCtx.createBufferSource();
+                noiseNode.buffer = noiseBuffer;
+                noiseNode.loop = true;
+
+                noiseFilter = audioCtx.createBiquadFilter();
+                noiseFilter.type = 'bandpass';
+                noiseFilter.frequency.value = 400; 
+                noiseFilter.Q.value = 0.5;
+
+                noiseGain = audioCtx.createGain();
+                noiseGain.gain.value = 0; 
+
+                noiseNode.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(masterGain);
+                noiseNode.start();
+
+                // Create a wave shaper for distortion
+                distortionNode = audioCtx.createWaveShaper();
+                distortionNode.curve = makeDistortionCurve(0);
+                distortionNode.oversample = '4x';
+                
+                // Route master through distortion
+                masterGain.disconnect();
+                masterGain.connect(distortionNode);
+                distortionNode.connect(audioCtx.destination);
+
+
+                // 2. Setup Drone (Dissonant presence)
+                tinnitusOsc = audioCtx.createOscillator();
+                tinnitusOsc.type = 'triangle'; // Harsher waveform
+                tinnitusOsc.frequency.value = 432; // Unsettling frequency
+
+                tinnitusGain = audioCtx.createGain();
+                tinnitusGain.gain.value = 0;
+
+                tinnitusOsc.connect(tinnitusGain);
+                tinnitusGain.connect(masterGain);
+                tinnitusOsc.start();
+
+                // 3. Start Heartbeat Scheduler
+                heartbeatNextTime = audioCtx.currentTime + 0.5;
+                heartbeatScheduleInterval = requestAnimationFrame(scheduleHeartbeats);
             }
 
-            noiseNode = audioCtx.createBufferSource();
-            noiseNode.buffer = noiseBuffer;
-            noiseNode.loop = true;
-
-            noiseFilter = audioCtx.createBiquadFilter();
-            noiseFilter.type = 'bandpass';
-            noiseFilter.frequency.value = 400; 
-            noiseFilter.Q.value = 0.5;
-
-            noiseGain = audioCtx.createGain();
-            noiseGain.gain.value = 0; 
-
-            noiseNode.connect(noiseFilter);
-            noiseFilter.connect(noiseGain);
-            noiseGain.connect(masterGain);
-            noiseNode.start();
-
-            // Create a wave shaper for distortion
-            distortionNode = audioCtx.createWaveShaper();
-            distortionNode.curve = makeDistortionCurve(0);
-            distortionNode.oversample = '4x';
-            
-            // Route master through distortion
-            masterGain.disconnect();
-            masterGain.connect(distortionNode);
-            distortionNode.connect(audioCtx.destination);
-
-
-            // 2. Setup Drone (Dissonant presence)
-            tinnitusOsc = audioCtx.createOscillator();
-            tinnitusOsc.type = 'triangle'; // Harsher waveform
-            tinnitusOsc.frequency.value = 432; // Unsettling frequency
-
-            tinnitusGain = audioCtx.createGain();
-            tinnitusGain.gain.value = 0;
-
-            tinnitusOsc.connect(tinnitusGain);
-            tinnitusGain.connect(masterGain);
-            tinnitusOsc.start();
-
-            // 3. Start Heartbeat Scheduler
-            heartbeatNextTime = audioCtx.currentTime + 0.5;
-            heartbeatScheduleInterval = requestAnimationFrame(scheduleHeartbeats);
+            // iOS Safari requires explicit resume upon user gesture
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
         }
 
         function makeDistortionCurve(amount) {
@@ -683,6 +718,8 @@
         }, {passive: true});
 
         window.addEventListener('mouseout', () => mouse.active = false);
+        window.addEventListener('touchend', () => mouse.active = false);
+        window.addEventListener('touchcancel', () => mouse.active = false);
 
         // Start Loop
         animate();
