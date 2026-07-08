@@ -462,18 +462,18 @@
             }
         }
 
-        function makeDistortionCurve(amount) {
-            const k = typeof amount === 'number' ? amount : 50;
-            const n_samples = 44100;
-            const curve = new Float32Array(n_samples);
-            const deg = Math.PI / 180;
-            let i = 0;
-            let x;
-            for ( ; i < n_samples; ++i ) {
-                x = i * 2 / n_samples - 1;
-                curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
+                // Initialize Heartbeat Scheduler
+                heartbeatNextTime = audioCtx.currentTime + 0.5;
+                heartbeatScheduleInterval = requestAnimationFrame(scheduleHeartbeats);
             }
-            return curve;
+            
+            // Crucial for iOS Safari: forcefully resume context state on user interaction
+            if (audioCtx.state === 'suspended') {
+                let resumePromise = audioCtx.resume();
+                if (resumePromise !== undefined) {
+                    resumePromise.catch(e => console.warn("Audio resume blocked by browser:", e));
+                }
+            }
         }
 
         function createHeartbeatThump(time, frequency, decay) {
@@ -724,6 +724,39 @@
         // Start Loop
         animate();
 
-    </script>
-</body>
-</html>
+        // Init Sequence
+        const handleStart = (e) => {
+            if (e.type === 'touchstart') {
+                e.preventDefault(); // Prevent double-firing with click
+            }
+            
+            // 1. Hide overlay immediately so UI is responsive
+            const introOverlay = document.getElementById('intro-overlay');
+            if (introOverlay) {
+                introOverlay.classList.add('hidden');
+                setTimeout(() => {
+                    introOverlay.style.display = 'none';
+                }, 2000);
+            }
+            
+            // 2. Set baseline visual state
+            targetPanicLevel = 0.05;
+
+            // 3. Try initializing audio safely. If this fails on a strict mobile browser, 
+            // the visual experience will still seamlessly begin!
+            try {
+                initAudio();
+            } catch (err) {
+                console.warn("Web Audio API not fully supported or blocked by mobile browser:", err);
+            }
+        };
+
+        const btnStart = document.getElementById('btn-start');
+        btnStart.addEventListener('touchstart', handleStart, { passive: false });
+        btnStart.addEventListener('click', handleStart);
+
+        // Trigger Controls
+        document.getElementById('btn-panic').addEventListener('click', () => { 
+            targetPanicLevel = 1.0; 
+            isBreathing = false; 
+        });
