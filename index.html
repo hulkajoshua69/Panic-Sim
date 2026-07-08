@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panic Paroxysm: Derealization</title>
+    <style>
+        :root {
+            --primary-bg: #030303;
+            --text-color: #d0d0d0;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            touch-action: none; 
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none; 
+        }
+
+        .header {
+            padding: 20px;
+            text-align: center;
+            opacity: 0.6;
+            transition: opacity 0.5s;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            font-weight: 300;
+        }
+
+        .header p {
+            margin: 5px 0 0 0;
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .controls {
+            padding: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            pointer-events: auto;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #aaa;
+            padding: 12px 24px;
+            font-size: 0.9rem;
+            border-radius: 2px; /* Sharper edges for this theme */
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: all 0.4s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            user-select: none;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #fff;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #btn-panic {
+            border-color: rgba(155, 89, 182, 0.3); /* Purple hue for derealization */
+            color: #d2b4de;
+        }
+
+        #btn-panic:hover {
+            background: rgba(155, 89, 182, 0.15);
+            border-color: #9b59b6;
+            box-shadow: 0 0 20px rgba(155, 89, 182, 0.4);
+        }
+
+        #btn-breathe {
+            border-color: rgba(46, 204, 113, 0.3); /* Green hue for grounding */
+            color: #a9dfbf;
+        }
+
+        #btn-breathe.active-breathing {
+            background: rgba(46, 204, 113, 0.15);
+            border-color: #2ecc71;
+            box-shadow: 0 0 20px rgba(46, 204, 113, 0.4);
+            transform: scale(1.02);
+            color: #fff;
+        }
+
+        #intro-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #020202;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 2s ease;
+        }
+
+        #intro-overlay h2 {
+            font-weight: 300;
+            letter-spacing: 6px;
+            margin-bottom: 30px;
+            text-align: center;
+            padding: 0 20px;
+            color: #ddd;
+        }
+
+        #intro-overlay p {
+            color: #666;
+            max-width: 500px;
+            text-align: center;
+            line-height: 1.8;
+            margin-bottom: 50px;
+            padding: 0 20px;
+            font-size: 0.9rem;
+        }
+
+        #btn-start {
+            font-size: 1rem;
+            padding: 15px 40px;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="header">
+            <h1>Panic Paroxysm</h1>
+            <p>An interactive simulation of acute existential derealization.</p>
+        </div>
+        <div class="controls">
+            <button id="btn-panic">Realize Existence</button>
+            <button id="btn-breathe">Hold to Anchor</button>
+        </div>
+    </div>
+
+    <div id="intro-overlay">
+        <h2>PANIC PAROXYSM</h2>
+        <p>This experience explores the sudden, overwhelming weight of self-awareness and the resulting sense of unreality.<br><br>Warning: Contains flashing visuals and disorienting audio meant to simulate derealization. Headphones recommended.</p>
+        <button id="btn-start">Enter Experience</button>
+    </div>
+
+    <script>
+        /**
+         * System State & Constants
+         */
+        let panicLevel = 0; // 0.0 (grounded) to 1.0 (full derealization)
+        let targetPanicLevel = 0;
+        let isBreathing = false;
+        let breathCycle = 0;
+        let glitchIntensity = 0;
+        let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, active: false };
+
+        /**
+         * Canvas & Graphics Setup
+         */
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); 
+        let width, height, cx, cy;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            cx = width / 2;
+            cy = height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        /**
+         * Particles System
+         */
+        const numParticles = Math.min(window.innerWidth > 800 ? 350 : 150, 400);
+        const particles = [];
+
+        class Particle {
+            constructor() {
+                this.reset();
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.originalSize = this.size;
+            }
+
+            reset() {
+                this.angle = Math.random() * Math.PI * 2;
+                this.radius = Math.random() * 250 + 50;
+                this.speed = Math.random() * 0.01 + 0.002;
+                this.x = cx + Math.cos(this.angle) * this.radius;
+                this.y = cy + Math.sin(this.angle) * this.radius;
+                this.vx = 0;
+                this.vy = 0;
+                this.size = Math.random() * 2 + 1;
+                this.originalSize = this.size;
+                this.life = Math.random();
+                this.phase = Math.random() * Math.PI * 2; // For oscillation
+            }
+
+            update() {
+                let targetX = cx + Math.cos(this.angle) * this.radius;
+                let targetY = cy + Math.sin(this.angle) * this.radius;
+                
+                // Panic modifiers
+                if (panicLevel > 0) {
+                    // Instead of erratic expansion, create a sense of floating detachment
+                    const detachmentRadius = this.radius * (1 + panicLevel * 0.5);
+                    targetX = cx + Math.cos(this.angle) * detachmentRadius;
+                    targetY = cy + Math.sin(this.angle) * detachmentRadius;
+                    
+                    // Slow, heavy drift to simulate time dilation/unreality
+                    this.angle += this.speed * (1 - panicLevel * 0.8); 
+                    
+                    // Glitch/stutter movement
+                    if (Math.random() < glitchIntensity * 0.1) {
+                         targetX += (Math.random() - 0.5) * 50;
+                         targetY += (Math.random() - 0.5) * 50;
+                    }
+
+                } else {
+                    this.angle += this.speed;
+                }
+
+                // Breathing modifier (Align to breathing ring - Loose Anchor)
+                if (isBreathing) {
+                    const breathRadius = 150 + Math.sin(breathCycle) * 30;
+                    
+                    // The higher the panic, the more particles resist the anchor, creating a loose, scattered struggle
+                    const struggleFactor = panicLevel * 300; 
+                    
+                    targetX = cx + Math.cos(this.angle) * (breathRadius + (Math.random() - 0.5) * struggleFactor);
+                    targetY = cy + Math.sin(this.angle) * (breathRadius + (Math.random() - 0.5) * struggleFactor);
+                    
+                    // Sluggish rotation during recovery to simulate profound exhaustion
+                    this.angle += this.speed * 0.3; 
+                }
+
+                // Mouse interaction - sluggish repulsion
+                if (mouse.active) {
+                    const dx = this.x - mouse.x;
+                    const dy = this.y - mouse.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 200) {
+                        const force = (200 - dist) / 200;
+                        targetX += (dx / dist) * force * 50;
+                        targetY += (dy / dist) * force * 50;
+                    }
+                }
+
+                // Physics (velocity and easing)
+                // Lower easing during panic to make things feel unresponsive and distant
+                // When breathing, easing is very weak, making recovery feel like a slow, exhausting drag
+                const baseEasing = 0.05 - (panicLevel * 0.045);
+                const easing = isBreathing ? Math.max(0.01, 0.03 - (panicLevel * 0.02)) : baseEasing; 
+                
+                this.vx += (targetX - this.x) * easing;
+                this.vy += (targetY - this.y) * easing;
+                
+                // Friction
+                this.vx *= 0.85;
+                this.vy *= 0.85;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < -100 || this.x > width + 100 || this.y < -100 || this.y > height + 100) {
+                    if (panicLevel > 0.8 && Math.random() > 0.9) this.reset();
+                }
+            }
+
+            draw() {
+                // Color mapping: Shifts from warm/neutral to cold, sterile, and inverted
+                let h, s, l, a;
+                
+                if (panicLevel > 0.8 && Math.random() < glitchIntensity * 0.2) {
+                    // Stark, high-contrast glitches (black/white/neon)
+                    h = Math.random() > 0.5 ? 0 : 300; // Red or Magenta glitch
+                    s = '100%';
+                    l = Math.random() > 0.5 ? '100%' : '50%';
+                    a = 1;
+                    this.size = this.originalSize * 3;
+                } else {
+                    // Gradual shift to desaturated, alien purples and greens
+                    h = 220 + (panicLevel * 60); // Blue to Purple
+                    s = 20 + (panicLevel * 40) + '%'; // Increases saturation slightly but...
+                    l = 60 + (panicLevel * 20) + '%'; // washes out lightness
+                    a = 0.4 + (panicLevel * 0.3);
+                    
+                    // Throbbing size based on awareness
+                    this.size = this.originalSize * (1 + Math.sin(Date.now() * 0.005 + this.phase) * panicLevel);
+                }
+
+                ctx.fillStyle = `hsla(${h}, ${s}, ${l}, ${a})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < numParticles; i++) {
+            particles.push(new Particle());
+        }
+
+        /**
+         * Web Audio API Engine
+         */
+        let audioCtx;
+        let masterGain;
+        
+        let noiseNode;
+        let noiseFilter;
+        let noiseGain;
+        
+        let tinnitusOsc;
+        let tinnitusGain;
+        
+        let heartbeatNextTime = 0;
+        let heartbeatScheduleInterval;
+        let distortionNode;
+
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.8;
+            masterGain.connect(audioCtx.destination);
+
+            // 1. Setup Rushing Noise (White Noise)
+            const bufferSize = audioCtx.sampleRate * 2; 
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = noiseBuffer;
+            noiseNode.loop = true;
+
+            noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.value = 400; 
+            noiseFilter.Q.value = 0.5;
+
+            noiseGain = audioCtx.createGain();
+            noiseGain.gain.value = 0; 
+
+            noiseNode.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(masterGain);
+            noiseNode.start();
+
+            // Create a wave shaper for distortion
+            distortionNode = audioCtx.createWaveShaper();
+            distortionNode.curve = makeDistortionCurve(0);
+            distortionNode.oversample = '4x';
+            
+            // Route master through distortion
+            masterGain.disconnect();
+            masterGain.connect(distortionNode);
+            distortionNode.connect(audioCtx.destination);
+
+
+            // 2. Setup Drone (Dissonant presence)
+            tinnitusOsc = audioCtx.createOscillator();
+            tinnitusOsc.type = 'triangle'; // Harsher waveform
+            tinnitusOsc.frequency.value = 432; // Unsettling frequency
+
+            tinnitusGain = audioCtx.createGain();
+            tinnitusGain.gain.value = 0;
+
+            tinnitusOsc.connect(tinnitusGain);
+            tinnitusGain.connect(masterGain);
+            tinnitusOsc.start();
+
+            // 3. Start Heartbeat Scheduler
+            heartbeatNextTime = audioCtx.currentTime + 0.5;
+            heartbeatScheduleInterval = requestAnimationFrame(scheduleHeartbeats);
+        }
+
+        function makeDistortionCurve(amount) {
+            const k = typeof amount === 'number' ? amount : 50;
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            const deg = Math.PI / 180;
+            let i = 0;
+            let x;
+            for ( ; i < n_samples; ++i ) {
+                x = i * 2 / n_samples - 1;
+                curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
+            }
+            return curve;
+        }
+
+        function createHeartbeatThump(time, frequency, decay) {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc.type = 'sine';
+            filter.type = 'lowpass';
+            filter.frequency.value = 120; // Deeper, more muffled
+
+            osc.connect(gain);
+            gain.connect(filter);
+            filter.connect(masterGain);
+
+            osc.frequency.setValueAtTime(frequency, time);
+            osc.frequency.exponentialRampToValueAtTime(5, time + decay);
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(1, time + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
+
+            osc.start(time);
+            osc.stop(time + decay);
+        }
+
+        function scheduleHeartbeats() {
+            if(!audioCtx) return;
+            // Schedule ahead by 0.1 seconds
+            while (heartbeatNextTime < audioCtx.currentTime + 0.1) {
+                
+                // Slow, heavy heartbeat for existential dread, not necessarily fast panic
+                const baseInterval = 1.2;
+                const panicInterval = 1.8; // Actually slows down, feeling unnatural
+                const currentInterval = baseInterval + (panicLevel * (panicInterval - baseInterval));
+
+                // Hollow, deep thump
+                const intensity = 0.5 + (panicLevel * 0.5);
+                const freq = 60 - (panicLevel * 30); // Pitch drops, feels heavier
+                
+                createHeartbeatThump(heartbeatNextTime, freq, 0.6); // Lub
+                createHeartbeatThump(heartbeatNextTime + 0.2, freq - 10, 0.8); // Dub
+
+                heartbeatNextTime += currentInterval;
+            }
+            heartbeatScheduleInterval = requestAnimationFrame(scheduleHeartbeats);
+        }
+
+        function updateAudioState() {
+            if (!audioCtx) return;
+
+            noiseGain.gain.setTargetAtTime(panicLevel * 0.4, audioCtx.currentTime, 0.1);
+            noiseFilter.frequency.setTargetAtTime(400 + (panicLevel * 1000), audioCtx.currentTime, 0.1);
+
+            if (distortionNode) {
+                const distortionAmount = panicLevel * 50;
+                distortionNode.curve = makeDistortionCurve(distortionAmount);
+            }
+
+            // Update Drone
+            // Becomes a dissonant, overwhelming background presence
+            let droneVol = panicLevel * 0.2; 
+            tinnitusGain.gain.setTargetAtTime(droneVol, audioCtx.currentTime, 1.0);
+            
+            // Shift frequency slightly for dissonance
+            tinnitusOsc.frequency.setTargetAtTime(432 + (panicLevel * 20), audioCtx.currentTime, 1.0);
+        }
+
+        /**
+         * Main Animation Loop
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Glitch intensity increases non-linearly at high panic levels
+            glitchIntensity = panicLevel > 0.7 ? Math.pow((panicLevel - 0.7) / 0.3, 2) : 0;
+
+            // Update State Logic
+            if (isBreathing) {
+                // EXTREMELY slow recovery to simulate the exhausting duration of an actual episode
+                targetPanicLevel = Math.max(0, targetPanicLevel - 0.0007); 
+                breathCycle += 0.015; // Slow down the visual breathing prompt
+            } else {
+                if (targetPanicLevel > 0 && targetPanicLevel < 0.99) {
+                    targetPanicLevel = Math.max(0, targetPanicLevel - 0.0005); // Very slow natural decay
+                }
+            }
+
+            panicLevel += (targetPanicLevel - panicLevel) * 0.02; // Slower transition
+
+            updateAudioState();
+
+            // Clear screen with trailing effect
+            // Heavy trailing effect during derealization to simulate visual lag/disconnection
+            const bgAlpha = isBreathing ? 0.3 : (0.05 + ((1-panicLevel) * 0.1)); 
+            
+            ctx.fillStyle = `rgba(3, 3, 3, ${bgAlpha})`;
+            ctx.fillRect(0, 0, width, height);
+
+            // Screen Sway effect
+            ctx.save();
+            if (panicLevel > 0.2) {
+                // Instead of a violent shake, a nauseating, slow sway that stutters
+                const swayX = Math.sin(Date.now() * 0.001) * panicLevel * 20;
+                const swayY = Math.cos(Date.now() * 0.0013) * panicLevel * 20;
+                
+                let jitterX = 0; let jitterY = 0;
+                if(Math.random() < glitchIntensity * 0.5) {
+                    jitterX = (Math.random() - 0.5) * 10;
+                    jitterY = (Math.random() - 0.5) * 10;
+                }
+                
+                ctx.translate(swayX + jitterX, swayY + jitterY);
+                
+                // Slight rotational distortion
+                ctx.translate(cx, cy);
+                ctx.rotate(Math.sin(Date.now() * 0.0005) * panicLevel * 0.05);
+                ctx.translate(-cx, -cy);
+            }
+
+            // Draw Breathing Ring (Anchor)
+            if (isBreathing || panicLevel < 0.2) {
+                const ringScale = isBreathing ? Math.sin(breathCycle) : 0;
+                
+                // Ring struggles to maintain shape at high panic
+                const distortion = panicLevel * 20 * Math.random();
+                const radius = 100 + ringScale * 20 + (isBreathing ? distortion : 0); 
+                
+                // Anchor is weaker/dimmer when panic is high, showing the struggle to ground
+                const opacity = isBreathing ? Math.max(0.2, 0.8 - (panicLevel * 0.5)) : (0.2 - panicLevel);
+                
+                if (opacity > 0) {
+                    // Outer grounding ring
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(46, 204, 113, ${opacity})`;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+
+                    // Inner core
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 30 + ringScale * 10, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(46, 204, 113, ${opacity * 0.5})`;
+                    ctx.fill();
+                }
+            }
+
+            // Draw & Update Particles
+            // Sometimes invert composite operation for a negative-color flash
+            if (Math.random() < glitchIntensity * 0.05) {
+                 ctx.globalCompositeOperation = 'difference';
+            } else {
+                 ctx.globalCompositeOperation = panicLevel > 0.5 ? 'lighter' : 'source-over';
+            }
+            
+            // Draw connecting web for paroxysm chaos
+            if (panicLevel > 0.4) {
+                ctx.beginPath();
+                ctx.strokeStyle = `rgba(150, 100, 200, ${panicLevel * 0.1})`; // Purple webs
+                ctx.lineWidth = 1;
+                for(let i=0; i<particles.length; i+=4) { 
+                    const p1 = particles[i];
+                    for(let j=i+1; j<i+5 && j<particles.length; j++) {
+                        const p2 = particles[j];
+                        const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                        if(dist < 120) {
+                            ctx.moveTo(p1.x, p1.y);
+                            ctx.lineTo(p2.x, p2.y);
+                        }
+                    }
+                }
+                ctx.stroke();
+            }
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            ctx.restore(); // Restore from sway
+        }
+
+        /**
+         * Interactions
+         */
+        const introOverlay = document.getElementById('intro-overlay');
+        const btnStart = document.getElementById('btn-start');
+
+        btnStart.addEventListener('click', () => {
+            initAudio();
+            introOverlay.classList.add('hidden');
+            setTimeout(() => {
+                introOverlay.style.display = 'none';
+            }, 2000); // Slower fade for this theme
+            
+            // Auto trigger a mild baseline
+            targetPanicLevel = 0.05;
+        });
+
+        // Trigger Panic
+        const btnPanic = document.getElementById('btn-panic');
+        btnPanic.addEventListener('click', () => {
+            targetPanicLevel = 1.0;
+            isBreathing = false;
+        });
+
+        // Breathing Controls (Hold to anchor)
+        const btnBreathe = document.getElementById('btn-breathe');
+        
+        const startBreathing = (e) => {
+            e.preventDefault(); 
+            isBreathing = true;
+            btnBreathe.classList.add('active-breathing');
+            btnBreathe.textContent = "Anchoring...";
+        };
+        
+        const stopBreathing = (e) => {
+            e.preventDefault();
+            isBreathing = false;
+            btnBreathe.classList.remove('active-breathing');
+            btnBreathe.textContent = "Hold to Anchor";
+        };
+
+        btnBreathe.addEventListener('mousedown', startBreathing);
+        btnBreathe.addEventListener('touchstart', startBreathing, {passive: false});
+        
+        window.addEventListener('mouseup', stopBreathing);
+        window.addEventListener('touchend', stopBreathing);
+
+        // Mouse/Touch Tracking
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            mouse.active = true;
+        });
+        
+        window.addEventListener('touchmove', (e) => {
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
+            mouse.active = true;
+        }, {passive: true});
+
+        window.addEventListener('mouseout', () => mouse.active = false);
+
+        // Start Loop
+        animate();
+
+    </script>
+</body>
+</html>
